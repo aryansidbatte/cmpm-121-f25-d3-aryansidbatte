@@ -25,13 +25,15 @@ Key gameplay challenge: allow collecting and crafting tokens from nearby map cel
 - [x] copy `main.ts` to `reference.ts` for future reference
 - [x] delete everything in `main.ts`
 - [x] put a basic leaflet map on the screen
-- [ ] draw the player's location on the map
-- [ ] draw a rectangle representing one cell on the map
-- [ ] use loops to draw a whole grid of cells on the map
-- [ ] implement token spawn rules for a cell (1 or 0 tokens)
+- [x] draw the player's location on the map
+- [x] draw a rectangle representing one cell on the map
+- [x] use loops to draw a whole grid of cells on the map
+- [x] implement token spawn rules for a cell (1 or 0 tokens)
 - [ ] implement picking up a nearby token into the player's hand (max 1)
 - [ ] implement 2048-style merge rules (merge identical tokens to double value; enforce one-merge-per-action semantics)
 - [ ] add UI for player's hand and inventory feedback
+
+**D3.a Implementation notes:** The repository already contains a working Leaflet map (`map` + tile layer), a `playerMarker` placed at the classroom coordinates, grid rectangles spawned by `spawnCache` over an i/j neighborhood, deterministic spawn logic using `luck()` and `CACHE_SPAWN_PROBABILITY`, and a per-cell popup with a `poke` button that updates `playerPoints` (see `src/main.ts`).
 
 ### D3.b: Globe-spanning gameplay
 
