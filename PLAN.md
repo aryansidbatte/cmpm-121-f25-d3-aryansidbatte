@@ -79,7 +79,7 @@ Key technical challenge: remember cell state when off-screen and when users pan/
 
 ### Steps c
 
-- [ ] create an in-memory store for cell states (memento/flyweight ideas)
+- [x] create an in-memory store for cell states (memento/flyweight ideas)
 - [ ] persist cell state to local cache when unloaded from view
 - [ ] add logic to prevent farming tokens by toggling view
 - [ ] write tests or manual play scenarios that reproduce the farm bug and verify fix
@@ -95,14 +95,3 @@ Key technical challenge: remember game state across browser sessions; use device
 - [ ] integrate browser geolocation to move player position in real time
 - [ ] provide a simulated movement mode for testing without physically moving
 - [ ] run multi-session tests combining real and simulated movement
-
-## Short-term next actions
-
-- Create `PLAN.md` (this file) — done
-- Commit `PLAN.md` with message `Add initial PLAN.md`
-- Implement D3.a items in `src/main.ts` and `src/_leafletWorkaround.ts`
-
-## Notes for collaborators
-
-- Keep `PLAN.md` updated frequently — one small change per commit is ideal.
-- When you change the plan, update the todos in the project management view as well.

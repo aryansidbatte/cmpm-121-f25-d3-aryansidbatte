@@ -124,8 +124,21 @@ const CLASSROOM_LATLNG = leaflet.latLng(
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
 const TILE_DEGREES = 1e-4;
-const NEIGHBORHOOD_SIZE = 8;
+const _NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
+
+// In-memory cell state store (memento/flyweight)
+type CellState = { tokenPresent: boolean; tokenValue?: number | undefined };
+const cellStore = new Map<string, CellState>();
+function cellKey(i: number, j: number) {
+  return `${i},${j}`;
+}
+function getCellState(i: number, j: number): CellState | undefined {
+  return cellStore.get(cellKey(i, j));
+}
+function setCellState(i: number, j: number, state: CellState) {
+  cellStore.set(cellKey(i, j), state);
+}
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
@@ -152,7 +165,7 @@ playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
 // Display the player's points
-let playerPoints = 0;
+const playerPoints = 0;
 // Player hand: can hold at most one token (2048-style tile value)
 let playerHand: number | null = null;
 
@@ -189,15 +202,25 @@ function spawnCache(i: number, j: number) {
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
 
-  // Each cache may contain a token (power-of-two) that the player can pick up
-  let tokenPresent = true;
-  let tokenValue = Math.pow(
-    2,
-    Math.floor(luck([i, j, "initialValue"].toString()) * 4) + 1,
-  );
+  // Each cache may contain a token. Use cellStore to preserve state while in memory.
+  let cellState = getCellState(i, j);
+  if (!cellState) {
+    const seeded =
+      luck([i, j, "initialValue"].toString()) < CACHE_SPAWN_PROBABILITY;
+    cellState = seeded
+      ? {
+        tokenPresent: true,
+        tokenValue: Math.pow(
+          2,
+          Math.floor(luck([i, j, "value"].toString()) * 4) + 1,
+        ),
+      }
+      : { tokenPresent: false };
+    setCellState(i, j, cellState);
+  }
 
   // Show the token value as a permanent label on the cache
-  rect.bindTooltip(tokenPresent ? tokenValue.toString() : "", {
+  rect.bindTooltip(cellState.tokenPresent ? String(cellState.tokenValue) : "", {
     permanent: true,
     direction: "center",
     className: "cache-label",
@@ -207,10 +230,11 @@ function spawnCache(i: number, j: number) {
   rect.bindPopup(() => {
     // The popup offers a description and pickup/place buttons
     const popupDiv = document.createElement("div");
+    const tokenText = cellState!.tokenPresent
+      ? String(cellState!.tokenValue)
+      : "none";
     popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". Token: <span id="token">${
-      tokenPresent ? tokenValue : "none"
-    }</span>.</div>
+                <div>There is a cache here at "${i},${j}". Token: <span id="token">${tokenText}</span>.</div>
                 <button id="pickup">Pick up</button>
                 <button id="place">Place</button>`;
 
@@ -218,13 +242,15 @@ function spawnCache(i: number, j: number) {
     const placeBtn = popupDiv.querySelector<HTMLButtonElement>("#place");
     const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
 
-    // Initialize disabled state
-    if (pickupBtn) pickupBtn.disabled = !tokenPresent || playerHand !== null;
+    // Initialize disabled state from cellState
+    if (pickupBtn) {
+      pickupBtn.disabled = !cellState!.tokenPresent || playerHand !== null;
+    }
     if (placeBtn) placeBtn.disabled = playerHand === null;
 
     // Clicking pickup attempts to put the token into the player's hand
     pickupBtn?.addEventListener("click", () => {
-      if (!tokenPresent) {
+      if (!cellState!.tokenPresent) {
         alert("No token here to pick up.");
         return;
       }
@@ -242,9 +268,12 @@ function spawnCache(i: number, j: number) {
         return;
       }
 
-      // Pick up the token
-      playerHand = tokenValue;
-      tokenPresent = false;
+      // Pick up the token (update cellState)
+      // Use null-coalescing to ensure `playerHand` receives `number | null`
+      playerHand = cellState!.tokenValue ?? null;
+      cellState!.tokenPresent = false;
+      cellState!.tokenValue = undefined;
+      setCellState(i, j, cellState!);
       if (tokenSpan) tokenSpan.innerText = "none";
       // update the visible cache label
       rect.getTooltip()?.setContent("");
@@ -271,13 +300,14 @@ function spawnCache(i: number, j: number) {
       }
 
       // If no token present, place directly
-      if (!tokenPresent) {
-        tokenValue = playerHand as number;
-        tokenPresent = true;
+      if (!cellState!.tokenPresent) {
+        cellState!.tokenPresent = true;
+        cellState!.tokenValue = playerHand as number;
         playerHand = null;
-        if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+        setCellState(i, j, cellState!);
+        if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
         // update the visible cache label
-        rect.getTooltip()?.setContent(tokenValue.toString());
+        rect.getTooltip()?.setContent(String(cellState!.tokenValue));
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -286,17 +316,18 @@ function spawnCache(i: number, j: number) {
       }
 
       // If token present and same value, merge (single-merge-per-action)
-      if (tokenPresent && tokenValue === playerHand) {
-        tokenValue = tokenValue * 2;
+      if (cellState!.tokenPresent && cellState!.tokenValue === playerHand) {
+        cellState!.tokenValue = (cellState!.tokenValue || 0) * 2;
         playerHand = null;
-        if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+        setCellState(i, j, cellState!);
+        if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
         // update the visible cache label
-        rect.getTooltip()?.setContent(tokenValue.toString());
+        rect.getTooltip()?.setContent(String(cellState!.tokenValue));
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
         updateStatus();
-        alert(`Merged to ${tokenValue}!`);
+        alert(`Merged to ${cellState!.tokenValue}!`);
         return;
       }
 
