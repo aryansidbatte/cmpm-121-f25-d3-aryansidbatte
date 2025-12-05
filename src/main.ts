@@ -38,6 +38,24 @@ simControlsDiv.innerHTML = `
 `;
 controlPanelDiv.append(simControlsDiv);
 
+// Geolocation control: enable device GPS to move the player in real time
+const geoDiv = document.createElement("div");
+geoDiv.style.marginTop = "0.4rem";
+geoDiv.innerHTML = `
+  <label style="display:flex;gap:0.5rem;align-items:center;"><input type="checkbox" id="useGeolocation" /> Use device geolocation</label>
+`;
+controlPanelDiv.append(geoDiv);
+
+// Wire the geolocation checkbox to start/stop watching
+const _useGeoEl = document.querySelector<HTMLInputElement>("#useGeolocation");
+if (_useGeoEl) {
+  _useGeoEl.addEventListener("change", (ev) => {
+    const checked = (ev.target as HTMLInputElement).checked;
+    if (checked) startGeolocation();
+    else stopGeolocation();
+  });
+}
+
 // Debug controls: clear persisted cells and force spawn for testing
 const debugControlsDiv = document.createElement("div");
 debugControlsDiv.id = "debugControls";
@@ -46,6 +64,53 @@ debugControlsDiv.innerHTML = `
   <button id="clearPersisted">Clear persisted cells</button>
 `;
 controlPanelDiv.append(debugControlsDiv);
+
+// Geolocation state
+let geoWatchId: number | null = null;
+
+function startGeolocation() {
+  const nav = (globalThis as any).navigator;
+  if (!nav || !nav.geolocation) {
+    alert("Geolocation not available in this browser.");
+    const el = document.querySelector<HTMLInputElement>('#useGeolocation');
+    if (el) el.checked = false;
+    return;
+  }
+  if (geoWatchId != null) return; // already running
+
+  // Start watching position
+  geoWatchId = nav.geolocation.watchPosition(
+    (pos: GeolocationPosition) => {
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      const next = leaflet.latLng(lat, lon);
+      playerMarker.setLatLng(next);
+      const center = document.querySelector<HTMLInputElement>("#centerOnPlayer")!
+        .checked;
+      if (center) map.panTo(next);
+      // Update visible cells when player moves
+      updateVisibleCells();
+    },
+    (err: GeolocationPositionError) => {
+      console.warn("Geolocation error", err);
+      alert("Geolocation error: " + (err.message || err.code));
+      stopGeolocation();
+    },
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
+  );
+}
+
+function stopGeolocation() {
+  const nav = (globalThis as any).navigator;
+  if (geoWatchId != null && nav && nav.geolocation) {
+    try {
+      nav.geolocation.clearWatch(geoWatchId);
+    } catch {
+      /* ignore */
+    }
+  }
+  geoWatchId = null;
+}
 
 // Page title
 const titleDiv = document.createElement("div");
@@ -263,10 +328,14 @@ function persistAllCellStoreToStorage() {
 }
 
 // Ensure we persist whatever is currently in memory when the page closes
-globalThis.addEventListener(
-  "beforeunload",
-  () => persistAllCellStoreToStorage(),
-);
+globalThis.addEventListener("beforeunload", () => {
+  try {
+    stopGeolocation();
+  } catch {
+    /* ignore */
+  }
+  persistAllCellStoreToStorage();
+});
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
