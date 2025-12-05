@@ -72,7 +72,7 @@ debugControlsDiv.innerHTML = `
 let geoTimerId: number | null = null;
 
 function startGeolocation() {
-  const nav = (globalThis as any).navigator;
+  const nav = (globalThis as unknown as { navigator?: Navigator }).navigator;
   if (!nav || !nav.geolocation) {
     alert("Geolocation not available in this browser.");
     const el = document.querySelector<HTMLInputElement>("#useGeolocation");
