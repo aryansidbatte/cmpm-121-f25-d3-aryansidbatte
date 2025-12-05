@@ -63,7 +63,19 @@ playerMarker.addTo(map);
 
 // Display the player's points
 let playerPoints = 0;
-statusPanelDiv.innerHTML = "No points yet...";
+// Player hand: can hold at most one token (2048-style tile value)
+let playerHand: number | null = null;
+
+// Pickup distance threshold (meters)
+const PICKUP_RADIUS_METERS = 50;
+
+function updateStatus() {
+  statusPanelDiv.innerHTML = `${playerPoints} points accumulated — Hand: ${
+    playerHand ?? "empty"
+  }`;
+}
+
+updateStatus();
 
 // Add caches to the map by cell numbers
 function spawnCache(i: number, j: number) {
@@ -78,26 +90,51 @@ function spawnCache(i: number, j: number) {
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
 
+  // Each cache may contain a token (power-of-two) that the player can pick up
+  let tokenPresent = true;
+  const tokenValue = Math.pow(
+    2,
+    Math.floor(luck([i, j, "initialValue"].toString()) * 4) + 1,
+  );
+
   // Handle interactions with the cache
   rect.bindPopup(() => {
-    // Each cache has a random point value, mutable by the player
-    let pointValue = Math.floor(luck([i, j, "initialValue"].toString()) * 100);
-
-    // The popup offers a description and button
+    // The popup offers a description and a pickup button
     const popupDiv = document.createElement("div");
     popupDiv.innerHTML = `
-                <div>There is a cache here at "${i},${j}". It has value <span id="value">${pointValue}</span>.</div>
-                <button id="poke">poke</button>`;
+                <div>There is a cache here at "${i},${j}". Token: <span id="token">${
+      tokenPresent ? tokenValue : "none"
+    }</span>.</div>
+                <button id="pickup">Pick up</button>`;
 
-    // Clicking the button decrements the cache's value and increments the player's points
+    // Clicking pickup attempts to put the token into the player's hand
     popupDiv
-      .querySelector<HTMLButtonElement>("#poke")!
+      .querySelector<HTMLButtonElement>("#pickup")!
       .addEventListener("click", () => {
-        pointValue--;
-        popupDiv.querySelector<HTMLSpanElement>("#value")!.innerHTML =
-          pointValue.toString();
-        playerPoints++;
-        statusPanelDiv.innerHTML = `${playerPoints} points accumulated`;
+        if (!tokenPresent) {
+          alert("No token here to pick up.");
+          return;
+        }
+        if (playerHand !== null) {
+          alert("You already have a token in hand. You can only hold one.");
+          return;
+        }
+
+        // Check distance between player and cache center
+        const playerLatLng = playerMarker.getLatLng();
+        const cellCenter = bounds.getCenter();
+        const distance = playerLatLng.distanceTo(cellCenter);
+        if (distance > PICKUP_RADIUS_METERS) {
+          alert("Too far away to pick up the token. Move closer.");
+          return;
+        }
+
+        // Pick up the token
+        playerHand = tokenValue;
+        tokenPresent = false;
+        const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
+        if (tokenSpan) tokenSpan.innerText = "none";
+        updateStatus();
       });
 
     return popupDiv;
