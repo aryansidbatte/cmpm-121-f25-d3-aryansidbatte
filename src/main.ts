@@ -47,6 +47,35 @@ debugControlsDiv.innerHTML = `
 `;
 controlPanelDiv.append(debugControlsDiv);
 
+// Page title
+const titleDiv = document.createElement("div");
+titleDiv.id = "siteTitle";
+titleDiv.innerText = "World of Bits";
+titleDiv.style.cssText =
+  "font-size:1.25rem;font-weight:600;text-align:center;margin:0.5rem 0;";
+document.body.append(titleDiv);
+
+// Create falling globe emojis for background effect
+function spawnGlobe(xPercent: number, delay = 0) {
+  const el = document.createElement("div");
+  el.className = "globe-fall";
+  el.style.left = `${xPercent}%`;
+  el.style.animationDelay = `${delay}s`;
+  el.innerText = "🌍";
+  document.body.append(el);
+  // remove after animation completes to keep DOM tidy
+  setTimeout(() => el.remove(), 10000 + delay * 1000);
+}
+
+// Periodically spawn globes across the width
+setInterval(() => {
+  for (let i = 0; i < 6; i++) {
+    const x = Math.random() * 100;
+    const delay = Math.random() * 4;
+    spawnGlobe(x, delay);
+  }
+}, 2200);
+
 function parseStep(): number {
   const el = document.querySelector<HTMLInputElement>("#stepSize");
   if (!el) return 0.001;

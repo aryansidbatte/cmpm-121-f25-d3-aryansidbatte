@@ -12,6 +12,40 @@
   margin: 1rem auto 0;
 }
 
+/* Background and falling globe emojis */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  /* extend gradient to 100% so the bottom doesn't show a distinct band */
+  background: linear-gradient(180deg, #a0d2ff 0%, #7fbfff 100%);
+  position: relative;
+  overflow-x: hidden;
+}
+
+.globe-fall {
+  position: fixed;
+  top: -3rem;
+  font-size: 20px;
+  pointer-events: none;
+  animation-name: fall;
+  animation-duration: 8s;
+  animation-timing-function: linear;
+  opacity: 0.9;
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg);
+    opacity: 0.95;
+  }
+}
+
 /* Hand HUD (centered under the map) */
 #handPanel {
   width: min(420px, 90%);

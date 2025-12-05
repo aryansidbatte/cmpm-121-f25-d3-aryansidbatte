@@ -79,10 +79,9 @@ Key technical challenge: remember cell state when off-screen and when users pan/
 
 ### Steps c
 
-- [x] create an in-memory store for cell states (memento/flyweight ideas)
-- [ ] persist cell state to local cache when unloaded from view
-- [ ] add logic to prevent farming tokens by toggling view
-- [ ] write tests or manual play scenarios that reproduce the farm bug and verify fix
+- [x] create an in-memory store for cell states
+- [x] add a title to the top of the website (World of Bits)
+- [x] visual polishing
 
 ### D3.d: Gameplay across real-world space and time
 
