@@ -183,6 +183,28 @@ const TILE_DEGREES = 1e-4;
 const _NEIGHBORHOOD_SIZE = 8;
 const CACHE_SPAWN_PROBABILITY = 0.1;
 
+// Map token values to colors for visible caches
+const TOKEN_COLORS = new Map<number, string>([
+  [2, "#f7d794"],
+  [4, "#ffd166"],
+  [8, "#ff9f1c"],
+  [16, "#ff6b6b"],
+  [32, "#ff4d94"],
+  [64, "#c77dff"],
+  [128, "#7f5af0"],
+  [256, "#4cc9f0"],
+  [512, "#00b4d8"],
+  [1024, "#2ec4b6"],
+  [2048, "#2b9348"],
+]);
+
+function getColorForToken(value?: number | undefined) {
+  if (!value) return "#eeeeee";
+  // Try direct match, otherwise fall back by halving until a match or 2
+  let v = value;
+  while (v > 1 && !TOKEN_COLORS.has(v)) v = Math.floor(v / 2);
+  return TOKEN_COLORS.get(v) ?? "#dddddd";
+}
 // In-memory cell state store (memento/flyweight)
 type CellState = { tokenPresent: boolean; tokenValue?: number | undefined };
 const cellStore = new Map<string, CellState>();
@@ -322,6 +344,22 @@ function spawnCache(i: number, j: number) {
     setCellState(i, j, cellState);
   }
 
+  // Style the rectangle based on token presence/value and show label
+  const initialFill = cellState.tokenPresent
+    ? getColorForToken(cellState.tokenValue)
+    : "#ffffff";
+  const initialOpacity = cellState.tokenPresent ? 0.8 : 0.06;
+  try {
+    rect.setStyle({
+      color: "#333",
+      weight: 1,
+      fillColor: initialFill,
+      fillOpacity: initialOpacity,
+    });
+  } catch (e) {
+    // ignore styling errors
+  }
+
   // Show the token value as a permanent label on the cache
   rect.bindTooltip(cellState.tokenPresent ? String(cellState.tokenValue) : "", {
     permanent: true,
@@ -380,8 +418,9 @@ function spawnCache(i: number, j: number) {
       // Persist the cell state so emptiness survives reloads
       persistCellState(i, j, cellState!);
       if (tokenSpan) tokenSpan.innerText = "none";
-      // update the visible cache label: rebind the permanent tooltip so it refreshes
+      // Update visual style and tooltip for emptied cache
       try {
+        rect.setStyle({ fillColor: "#ffffff", fillOpacity: 0.06 });
         rect.unbindTooltip();
         rect.bindTooltip("", {
           permanent: true,
@@ -422,8 +461,12 @@ function spawnCache(i: number, j: number) {
         // Persist the placed token so it survives reloads
         persistCellState(i, j, cellState!);
         if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
-        // update the visible cache label: rebind tooltip with new value
+        // Update visual style and tooltip for placed token
         try {
+          rect.setStyle({
+            fillColor: getColorForToken(cellState!.tokenValue),
+            fillOpacity: 0.8,
+          });
           rect.unbindTooltip();
           rect.bindTooltip(String(cellState!.tokenValue), {
             permanent: true,
@@ -446,8 +489,12 @@ function spawnCache(i: number, j: number) {
         // Persist merged value
         persistCellState(i, j, cellState!);
         if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
-        // update the visible cache label: rebind tooltip with merged value
+        // Update visual style and tooltip for merged token
         try {
+          rect.setStyle({
+            fillColor: getColorForToken(cellState!.tokenValue),
+            fillOpacity: 0.9,
+          });
           rect.unbindTooltip();
           rect.bindTooltip(String(cellState!.tokenValue), {
             permanent: true,
