@@ -132,10 +132,12 @@ document.addEventListener("click", (ev) => {
       "Cleared persisted cells. Visible cells will reseed on next pan/refresh.",
     );
     // Force a refresh: remove active overlays so updateVisibleCells will re-create them
-    activeCells.forEach((rect, key) => {
+    activeCells.forEach((rect) => {
       try {
         rect.remove();
-      } catch (e) {}
+      } catch {
+        /* ignore */
+      }
     });
     activeCells.clear();
     spawnedCells.clear();
@@ -227,8 +229,8 @@ function getCellState(i: number, j: number): CellState | undefined {
       cellStore.set(key, stored);
       return stored;
     }
-  } catch (e) {
-    // ignore JSON errors and fall back to undefined
+  } catch {
+    /* ignore JSON errors and fall back to undefined */
   }
   return undefined;
 }
@@ -261,7 +263,10 @@ function persistAllCellStoreToStorage() {
 }
 
 // Ensure we persist whatever is currently in memory when the page closes
-window.addEventListener("beforeunload", () => persistAllCellStoreToStorage());
+globalThis.addEventListener(
+  "beforeunload",
+  () => persistAllCellStoreToStorage(),
+);
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
@@ -356,8 +361,8 @@ function spawnCache(i: number, j: number) {
       fillColor: initialFill,
       fillOpacity: initialOpacity,
     });
-  } catch (e) {
-    // ignore styling errors
+  } catch {
+    /* ignore styling errors */
   }
 
   // Show the token value as a permanent label on the cache
@@ -427,8 +432,8 @@ function spawnCache(i: number, j: number) {
           direction: "center",
           className: "cache-label",
         });
-      } catch (e) {
-        // ignore
+      } catch {
+        /* ignore */
       }
       // Update buttons
       if (pickupBtn) pickupBtn.disabled = true;
@@ -473,7 +478,9 @@ function spawnCache(i: number, j: number) {
             direction: "center",
             className: "cache-label",
           });
-        } catch (e) {}
+        } catch {
+          /* ignore */
+        }
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -501,7 +508,9 @@ function spawnCache(i: number, j: number) {
             direction: "center",
             className: "cache-label",
           });
-        } catch (e) {}
+        } catch {
+          /* ignore */
+        }
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -527,7 +536,7 @@ const VIEW_PADDING_TILES = 2;
 
 // Active overlays for cells currently shown on the map. We keep a map
 // so we can remove rectangles when the cell leaves the viewport.
-const activeCells = new Map<string, any>();
+const activeCells = new Map<string, leaflet.Rectangle>();
 
 // Local storage key for persisted cell state
 const STORAGE_KEY = "wob_cellstore_v1";
@@ -592,8 +601,8 @@ function updateVisibleCells() {
     // Remove the overlay and bookkeeping entries
     try {
       rect.remove();
-    } catch (e) {
-      // ignore
+    } catch {
+      /* ignore */
     }
     activeCells.delete(key);
     spawnedCells.delete(key);
