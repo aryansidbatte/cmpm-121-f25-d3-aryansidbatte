@@ -38,6 +38,15 @@ simControlsDiv.innerHTML = `
 `;
 controlPanelDiv.append(simControlsDiv);
 
+// Debug controls: clear persisted cells and force spawn for testing
+const debugControlsDiv = document.createElement("div");
+debugControlsDiv.id = "debugControls";
+debugControlsDiv.style.marginTop = "0.4rem";
+debugControlsDiv.innerHTML = `
+  <button id="clearPersisted">Clear persisted cells</button>
+`;
+controlPanelDiv.append(debugControlsDiv);
+
 function parseStep(): number {
   const el = document.querySelector<HTMLInputElement>("#stepSize");
   if (!el) return 0.001;
@@ -88,7 +97,25 @@ document.addEventListener("click", (ev) => {
     }
     teleportTo(lat, lon);
   }
+  if (target.id === "clearPersisted") {
+    localStorage.removeItem(STORAGE_KEY);
+    alert(
+      "Cleared persisted cells. Visible cells will reseed on next pan/refresh.",
+    );
+    // Force a refresh: remove active overlays so updateVisibleCells will re-create them
+    activeCells.forEach((rect, key) => {
+      try {
+        rect.remove();
+      } catch (e) {}
+    });
+    activeCells.clear();
+    spawnedCells.clear();
+    cellStore.clear();
+    updateVisibleCells();
+  }
 });
+
+// (force-spawn UI removed; spawning is forced by default)
 
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
@@ -134,11 +161,56 @@ function cellKey(i: number, j: number) {
   return `${i},${j}`;
 }
 function getCellState(i: number, j: number): CellState | undefined {
-  return cellStore.get(cellKey(i, j));
+  const key = cellKey(i, j);
+  const fromMemory = cellStore.get(key);
+  if (fromMemory) return fromMemory;
+
+  // Lazy load from localStorage if available
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as Record<string, CellState> | null;
+    if (!parsed) return undefined;
+    const stored = parsed[key];
+    if (stored) {
+      cellStore.set(key, stored);
+      return stored;
+    }
+  } catch (e) {
+    // ignore JSON errors and fall back to undefined
+  }
+  return undefined;
 }
 function setCellState(i: number, j: number, state: CellState) {
   cellStore.set(cellKey(i, j), state);
 }
+
+// Persist a single cell state to localStorage (merge with existing object)
+function persistCellState(i: number, j: number, state: CellState) {
+  try {
+    const key = cellKey(i, j);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) as Record<string, CellState> : {};
+    parsed[key] = state;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+  } catch (e) {
+    console.warn("Failed to persist single cell:", e);
+  }
+}
+
+// Persist entire in-memory cell store to localStorage (used on unload)
+function persistAllCellStoreToStorage() {
+  try {
+    const obj: Record<string, CellState> = {};
+    for (const [k, v] of cellStore.entries()) obj[k] = v;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.warn("Failed to persist cell store:", e);
+  }
+}
+
+// Ensure we persist whatever is currently in memory when the page closes
+window.addEventListener("beforeunload", () => persistAllCellStoreToStorage());
 
 // Create the map (element with id "map" is defined in index.html)
 const map = leaflet.map(mapDiv, {
@@ -201,11 +273,13 @@ function spawnCache(i: number, j: number) {
   // Add a rectangle to the map to represent the cache
   const rect = leaflet.rectangle(bounds);
   rect.addTo(map);
+  const key = cellKey(i, j);
+  activeCells.set(key, rect);
 
   // Each cache may contain a token. Use cellStore to preserve state while in memory.
   let cellState = getCellState(i, j);
   if (!cellState) {
-    const seeded =
+    const seeded = FORCE_SPAWN ||
       luck([i, j, "initialValue"].toString()) < CACHE_SPAWN_PROBABILITY;
     cellState = seeded
       ? {
@@ -274,9 +348,20 @@ function spawnCache(i: number, j: number) {
       cellState!.tokenPresent = false;
       cellState!.tokenValue = undefined;
       setCellState(i, j, cellState!);
+      // Persist the cell state so emptiness survives reloads
+      persistCellState(i, j, cellState!);
       if (tokenSpan) tokenSpan.innerText = "none";
-      // update the visible cache label
-      rect.getTooltip()?.setContent("");
+      // update the visible cache label: rebind the permanent tooltip so it refreshes
+      try {
+        rect.unbindTooltip();
+        rect.bindTooltip("", {
+          permanent: true,
+          direction: "center",
+          className: "cache-label",
+        });
+      } catch (e) {
+        // ignore
+      }
       // Update buttons
       if (pickupBtn) pickupBtn.disabled = true;
       if (placeBtn) placeBtn.disabled = false;
@@ -305,9 +390,18 @@ function spawnCache(i: number, j: number) {
         cellState!.tokenValue = playerHand as number;
         playerHand = null;
         setCellState(i, j, cellState!);
+        // Persist the placed token so it survives reloads
+        persistCellState(i, j, cellState!);
         if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
-        // update the visible cache label
-        rect.getTooltip()?.setContent(String(cellState!.tokenValue));
+        // update the visible cache label: rebind tooltip with new value
+        try {
+          rect.unbindTooltip();
+          rect.bindTooltip(String(cellState!.tokenValue), {
+            permanent: true,
+            direction: "center",
+            className: "cache-label",
+          });
+        } catch (e) {}
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -320,9 +414,18 @@ function spawnCache(i: number, j: number) {
         cellState!.tokenValue = (cellState!.tokenValue || 0) * 2;
         playerHand = null;
         setCellState(i, j, cellState!);
+        // Persist merged value
+        persistCellState(i, j, cellState!);
         if (tokenSpan) tokenSpan.innerText = String(cellState!.tokenValue);
-        // update the visible cache label
-        rect.getTooltip()?.setContent(String(cellState!.tokenValue));
+        // update the visible cache label: rebind tooltip with merged value
+        try {
+          rect.unbindTooltip();
+          rect.bindTooltip(String(cellState!.tokenValue), {
+            permanent: true,
+            direction: "center",
+            className: "cache-label",
+          });
+        } catch (e) {}
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -346,6 +449,16 @@ const ORIGIN_LAT = CLASSROOM_LATLNG.lat;
 const ORIGIN_LON = CLASSROOM_LATLNG.lng;
 const VIEW_PADDING_TILES = 2;
 
+// Active overlays for cells currently shown on the map. We keep a map
+// so we can remove rectangles when the cell leaves the viewport.
+const activeCells = new Map<string, any>();
+
+// Local storage key for persisted cell state
+const STORAGE_KEY = "wob_cellstore_v1";
+
+// Force every visible cell to spawn a token by default
+const FORCE_SPAWN = true;
+
 function latToI(lat: number) {
   return Math.floor((lat - ORIGIN_LAT) / TILE_DEGREES);
 }
@@ -366,9 +479,11 @@ function updateVisibleCells() {
   const jMin = lonToJ(west) - VIEW_PADDING_TILES;
   const jMax = lonToJ(east) + VIEW_PADDING_TILES;
 
+  const visibleKeys = new Set<string>();
   for (let i = iMin; i <= iMax; i++) {
     for (let j = jMin; j <= jMax; j++) {
       const key = `${i},${j}`;
+      visibleKeys.add(key);
       if (spawnedCells.has(key)) continue;
       // Deterministic seeding per cell
       if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
@@ -377,6 +492,37 @@ function updateVisibleCells() {
       spawnedCells.add(key);
     }
   }
+
+  // Cells that are currently active but no longer visible should be
+  // persisted to localStorage and removed from the map to free memory.
+  activeCells.forEach((rect, key) => {
+    if (visibleKeys.has(key)) return;
+    // parse i,j from key
+    const [iStr, jStr] = key.split(",");
+    const iNum = parseInt(iStr, 10);
+    const jNum = parseInt(jStr, 10);
+    const state = getCellState(iNum, jNum);
+    if (state) {
+      try {
+        // Persist the cell state before removing (always store current state)
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) as Record<string, CellState> : {};
+        parsed[key] = state;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      } catch (e) {
+        console.warn("Failed persisting cell on unload:", e);
+      }
+    }
+    // Remove the overlay and bookkeeping entries
+    try {
+      rect.remove();
+    } catch (e) {
+      // ignore
+    }
+    activeCells.delete(key);
+    spawnedCells.delete(key);
+    cellStore.delete(key);
+  });
 }
 
 // Initial spawn and on map move
