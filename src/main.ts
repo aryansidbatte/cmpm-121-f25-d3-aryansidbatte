@@ -59,14 +59,14 @@ geoStatusDiv.style.cssText = "font-size:0.9rem;margin-top:0.25rem;color:#444;";
 geoStatusDiv.innerText = "Geolocation: inactive";
 // Don't append geo status to the left panel; it will be placed under movement controls
 
-// Debug controls: clear persisted cells and force spawn for testing
-const debugControlsDiv = document.createElement("div");
-debugControlsDiv.id = "debugControls";
-debugControlsDiv.style.marginTop = "0.4rem";
-debugControlsDiv.innerHTML = `
+// Footer controls: reset and other auxiliary controls
+const controlsFooterDiv = document.createElement("div");
+controlsFooterDiv.id = "controlsFooter";
+controlsFooterDiv.style.marginTop = "0.4rem";
+controlsFooterDiv.innerHTML = `
   <button id="resetGame">Reset game</button>
 `;
-// Don't append debug controls to the left panel; they will be placed under movement controls
+// These footer controls will be placed under the movement controls
 
 // Geolocation timer id (polling every 5s)
 let geoTimerId: number | null = null;
@@ -315,12 +315,12 @@ const teleportRow = simControlsDiv.querySelector<HTMLInputElement>("#teleLat")
 if (teleportRow && teleportRow.parentElement) {
   teleportRow.parentElement.insertBefore(geoDiv, teleportRow);
   teleportRow.parentElement.insertBefore(geoStatusDiv, teleportRow);
-  teleportRow.parentElement.insertBefore(debugControlsDiv, teleportRow);
+  teleportRow.parentElement.insertBefore(controlsFooterDiv, teleportRow);
 } else {
   // Fallback: append to the centered container
   simContainer.append(geoDiv);
   simContainer.append(geoStatusDiv);
-  simContainer.append(debugControlsDiv);
+  simContainer.append(controlsFooterDiv);
 }
 
 // Now wire the geolocation checkbox (it exists after inserting into the DOM)
@@ -339,20 +339,7 @@ document.body.append(statusPanelDiv);
 // Hide the textual status panel (we'll use the HUD instead)
 statusPanelDiv.style.display = "none";
 
-// Hand HUD
-const handPanelDiv = document.createElement("div");
-handPanelDiv.id = "handPanel";
-handPanelDiv.innerHTML = `
-  <div class="hand-label">Hand</div>
-  <div style="display:flex;gap:1rem;align-items:center;justify-content:center;">
-    <div class="hand-tile hand-empty" id="handTile">empty</div>
-    <div class="points">
-      <div class="points-label">Points</div>
-      <div class="points-value" id="points">0</div>
-    </div>
-  </div>
-`;
-// We'll place hand UI alongside movement controls; do not append the full panel here.
+// Hand HUD is created inline with movement controls (see `simControlsDiv` insertion)
 
 // Our classroom location
 const CLASSROOM_LATLNG = leaflet.latLng(
