@@ -24,6 +24,23 @@ document.body.append(mapDiv);
 const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
+// Hide the textual status panel (we'll use the HUD instead)
+statusPanelDiv.style.display = "none";
+
+// Hand HUD
+const handPanelDiv = document.createElement("div");
+handPanelDiv.id = "handPanel";
+handPanelDiv.innerHTML = `
+  <div class="hand-label">Hand</div>
+  <div style="display:flex;gap:1rem;align-items:center;justify-content:center;">
+    <div class="hand-tile hand-empty" id="handTile">empty</div>
+    <div class="points">
+      <div class="points-label">Points</div>
+      <div class="points-value" id="points">0</div>
+    </div>
+  </div>
+`;
+document.body.append(handPanelDiv);
 
 // Our classroom location
 const CLASSROOM_LATLNG = leaflet.latLng(
@@ -70,9 +87,18 @@ let playerHand: number | null = null;
 const PICKUP_RADIUS_METERS = 50;
 
 function updateStatus() {
-  statusPanelDiv.innerHTML = `${playerPoints} points accumulated — Hand: ${
-    playerHand ?? "empty"
-  }`;
+  const handTile = document.querySelector<HTMLDivElement>("#handTile");
+  if (handTile) {
+    if (playerHand === null) {
+      handTile.classList.add("hand-empty");
+      handTile.innerText = "empty";
+    } else {
+      handTile.classList.remove("hand-empty");
+      handTile.innerText = playerHand.toString();
+    }
+  }
+  const pointsSpan = document.querySelector<HTMLDivElement>("#points");
+  if (pointsSpan) pointsSpan.innerText = playerPoints.toString();
 }
 
 updateStatus();

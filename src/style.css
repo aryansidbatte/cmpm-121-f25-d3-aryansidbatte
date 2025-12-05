@@ -7,6 +7,58 @@
 }
 
 #map {
-  width: 100%;
-  height: 80vh;
+  width: min(100%, 900px);
+  height: 60vh;
+  margin: 1rem auto 0;
+}
+
+/* Hand HUD (centered under the map) */
+#handPanel {
+  width: min(420px, 90%);
+  margin: 0.5rem auto;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  font-family:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  text-align: center;
+}
+
+#handPanel .hand-label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+#handPanel .hand-tile {
+  display: inline-block;
+  min-width: 56px;
+  min-height: 36px;
+  line-height: 36px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #eee;
+  color: #222;
+}
+
+#handPanel .hand-empty {
+  opacity: 0.6;
+}
+
+#handPanel .points {
+  display: inline-block;
+  text-align: center;
+}
+
+#handPanel .points-label {
+  font-size: 0.75rem;
+  color: #555;
+}
+
+#handPanel .points-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
 }
