@@ -123,6 +123,13 @@ function spawnCache(i: number, j: number) {
     Math.floor(luck([i, j, "initialValue"].toString()) * 4) + 1,
   );
 
+  // Show the token value as a permanent label on the cache
+  rect.bindTooltip(tokenPresent ? tokenValue.toString() : "", {
+    permanent: true,
+    direction: "center",
+    className: "cache-label",
+  });
+
   // Handle interactions with the cache
   rect.bindPopup(() => {
     // The popup offers a description and pickup/place buttons
@@ -139,7 +146,7 @@ function spawnCache(i: number, j: number) {
     const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
 
     // Initialize disabled state
-    if (pickupBtn) pickupBtn.disabled = !tokenPresent;
+    if (pickupBtn) pickupBtn.disabled = !tokenPresent || playerHand !== null;
     if (placeBtn) placeBtn.disabled = playerHand === null;
 
     // Clicking pickup attempts to put the token into the player's hand
@@ -166,6 +173,8 @@ function spawnCache(i: number, j: number) {
       playerHand = tokenValue;
       tokenPresent = false;
       if (tokenSpan) tokenSpan.innerText = "none";
+      // update the visible cache label
+      rect.getTooltip()?.setContent("");
       // Update buttons
       if (pickupBtn) pickupBtn.disabled = true;
       if (placeBtn) placeBtn.disabled = false;
@@ -194,6 +203,8 @@ function spawnCache(i: number, j: number) {
         tokenPresent = true;
         playerHand = null;
         if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+        // update the visible cache label
+        rect.getTooltip()?.setContent(tokenValue.toString());
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
@@ -206,6 +217,8 @@ function spawnCache(i: number, j: number) {
         tokenValue = tokenValue * 2;
         playerHand = null;
         if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+        // update the visible cache label
+        rect.getTooltip()?.setContent(tokenValue.toString());
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
