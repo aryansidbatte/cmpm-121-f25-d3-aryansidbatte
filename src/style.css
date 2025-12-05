@@ -7,9 +7,102 @@
 }
 
 #map {
-  width: min(100%, 900px);
-  height: 60vh;
+  /* Make the map responsive: width follows viewport up to a max,
+     height scales with viewport but leaves room for controls. */
+  width: min(1100px, 92%);
+  /* Use min() between a viewport percentage and a calc() that
+     leaves space for the header/controls so the map scales nicely. */
+  height: min(75vh, calc(100vh - 240px));
   margin: 1rem auto 0;
+  max-height: calc(70vh - 160px);
+}
+
+/* Centered controls below the map */
+#simControls {
+  /* Match the map's width so controls visually align */
+  width: min(1100px, 92%);
+  margin: 0.5rem auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Controls row combining hand (left), controls (center), and points (right) */
+#controlsRow {
+  width: min(1100px, 92%);
+  margin: 0.5rem auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hand-left,
+.hand-right {
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-family:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  text-align: center;
+  min-width: 88px;
+}
+
+.hand-left .hand-label {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.hand-left .hand-tile {
+  display: inline-block;
+  min-width: 56px;
+  min-height: 36px;
+  line-height: 36px;
+  text-align: center;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #eee;
+  color: #222;
+}
+
+.hand-left .hand-empty {
+  opacity: 0.6;
+}
+
+.hand-right .points-label {
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.hand-right .points-value {
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-top: 0.1rem;
+}
+
+/* On narrow screens stack the controls row vertically */
+@media (max-width: 600px) {
+  #controlsRow {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .hand-left,
+  .hand-right {
+    width: 92%;
+    min-width: unset;
+  }
+}
+
+/* Ensure each immediate row inside simControls centers its children */
+#simControls > div {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Background and falling globe emojis */

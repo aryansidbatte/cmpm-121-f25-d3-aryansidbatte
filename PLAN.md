@@ -90,7 +90,7 @@ Key technical challenge: remember game state across browser sessions; use device
 ### Steps d
 
 - [x] serialize and save player and cell state to `localStorage` or IndexedDB
-- [ ] restore state on load and reconnect map overlays to stored cells
-- [ ] integrate browser geolocation to move player position in real time
-- [ ] provide a simulated movement mode for testing without physically moving
-- [ ] run multi-session tests combining real and simulated movement
+- [x] restore state on load and reconnect map overlays to stored cells
+- [x] integrate browser geolocation to move player position in real time
+- [x] run multi-session tests combining real and simulated movement
+-

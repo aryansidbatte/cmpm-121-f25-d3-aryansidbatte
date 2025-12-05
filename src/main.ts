@@ -22,13 +22,16 @@ const simControlsDiv = document.createElement("div");
 simControlsDiv.id = "simControls";
 simControlsDiv.innerHTML = `
   <div style="display:flex;gap:0.5rem;align-items:center;">
-    <label for="stepSize">Step (deg):</label>
-    <input id="stepSize" type="number" value="0.001" step="0.0001" style="width:90px;" />
-    <button id="moveN">N</button>
-    <button id="moveS">S</button>
-    <button id="moveE">E</button>
-    <button id="moveW">W</button>
+    <label for="stepSize">Step:</label>
+    <input id="stepSize" type="range" min="1" max="10" value="1" style="width:120px;" />
+    <span id="stepLabel" style="min-width:80px;text-align:center;">1</span>
     <label style="margin-left:0.5rem"><input type="checkbox" id="centerOnPlayer" checked /> center map</label>
+  </div>
+  <div style="margin-top:0.4rem;display:grid;grid-template-columns:40px 40px 40px;gap:0.25rem;align-items:center;justify-content:center;width:140px;">
+    <div style="grid-column:2;grid-row:1;text-align:center;"><button id="moveN">N</button></div>
+    <div style="grid-column:1;grid-row:2;text-align:center;"><button id="moveW">W</button></div>
+    <div style="grid-column:3;grid-row:2;text-align:center;"><button id="moveE">E</button></div>
+    <div style="grid-column:2;grid-row:3;text-align:center;"><button id="moveS">S</button></div>
   </div>
   <div style="margin-top:0.4rem;display:flex;gap:0.5rem;align-items:center;">
     <input id="teleLat" placeholder="lat" style="width:120px;" />
@@ -36,80 +39,115 @@ simControlsDiv.innerHTML = `
     <button id="teleportBtn">Teleport</button>
   </div>
 `;
-controlPanelDiv.append(simControlsDiv);
+// Do not append simulated controls to the left control panel; they'll live under the map
+// (appended after `mapDiv` is created)
 
 // Geolocation control: enable device GPS to move the player in real time
 const geoDiv = document.createElement("div");
 geoDiv.style.marginTop = "0.4rem";
 geoDiv.innerHTML = `
-  <label style="display:flex;gap:0.5rem;align-items:center;"><input type="checkbox" id="useGeolocation" /> Use device geolocation</label>
+  <label style="display:flex;gap:0.5rem;align-items:center;"><input type="checkbox" id="useGeolocation" checked /> Use device geolocation</label>
 `;
-controlPanelDiv.append(geoDiv);
+// Don't append geo controls to the left panel; they'll be placed under movement controls
 
-// Wire the geolocation checkbox to start/stop watching
-const _useGeoEl = document.querySelector<HTMLInputElement>("#useGeolocation");
-if (_useGeoEl) {
-  _useGeoEl.addEventListener("change", (ev) => {
-    const checked = (ev.target as HTMLInputElement).checked;
-    if (checked) startGeolocation();
-    else stopGeolocation();
-  });
-}
+// (geolocation checkbox wiring will be attached after the controls are appended)
+
+// Geolocation status indicator
+const geoStatusDiv = document.createElement("div");
+geoStatusDiv.id = "geoStatus";
+geoStatusDiv.style.cssText = "font-size:0.9rem;margin-top:0.25rem;color:#444;";
+geoStatusDiv.innerText = "Geolocation: inactive";
+// Don't append geo status to the left panel; it will be placed under movement controls
 
 // Debug controls: clear persisted cells and force spawn for testing
 const debugControlsDiv = document.createElement("div");
 debugControlsDiv.id = "debugControls";
 debugControlsDiv.style.marginTop = "0.4rem";
 debugControlsDiv.innerHTML = `
-  <button id="clearPersisted">Clear persisted cells</button>
+  <button id="resetGame">Reset game</button>
 `;
-controlPanelDiv.append(debugControlsDiv);
+// Don't append debug controls to the left panel; they will be placed under movement controls
 
-// Geolocation state
-let geoWatchId: number | null = null;
+// Geolocation timer id (polling every 5s)
+let geoTimerId: number | null = null;
 
 function startGeolocation() {
   const nav = (globalThis as any).navigator;
   if (!nav || !nav.geolocation) {
     alert("Geolocation not available in this browser.");
-    const el = document.querySelector<HTMLInputElement>('#useGeolocation');
+    const el = document.querySelector<HTMLInputElement>("#useGeolocation");
     if (el) el.checked = false;
     return;
   }
-  if (geoWatchId != null) return; // already running
+  if (geoTimerId != null) return; // already running
 
-  // Start watching position
-  geoWatchId = nav.geolocation.watchPosition(
-    (pos: GeolocationPosition) => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-      const next = leaflet.latLng(lat, lon);
-      playerMarker.setLatLng(next);
-      const center = document.querySelector<HTMLInputElement>("#centerOnPlayer")!
-        .checked;
-      if (center) map.panTo(next);
-      // Update visible cells when player moves
-      updateVisibleCells();
-    },
-    (err: GeolocationPositionError) => {
-      console.warn("Geolocation error", err);
-      alert("Geolocation error: " + (err.message || err.code));
-      stopGeolocation();
-    },
-    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 },
-  );
+  const options = {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 10000,
+  };
+
+  const success = (pos: GeolocationPosition) => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const next = leaflet.latLng(lat, lon);
+    playerMarker.setLatLng(next);
+    const center = document.querySelector<HTMLInputElement>("#centerOnPlayer")!
+      .checked;
+    if (center) map.panTo(next);
+    // Update visible cells when player moves
+    updateVisibleCells();
+    try {
+      const now = new Date().toLocaleTimeString();
+      geoStatusDiv.innerText = `Geolocation: active — last ${now}`;
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const error = (err: GeolocationPositionError) => {
+    console.warn("Geolocation error", err);
+    try {
+      geoStatusDiv.innerText = `Geolocation: error — ${
+        err.message || err.code
+      }`;
+    } catch {
+      /* ignore */
+    }
+    alert("Geolocation error: " + (err.message || err.code));
+    // stop polling on recurring errors
+    stopGeolocation();
+  };
+
+  // Poll immediately, then every 5 seconds
+  try {
+    nav.geolocation.getCurrentPosition(success, error, options);
+  } catch {
+    /* ignore */
+  }
+  geoTimerId = globalThis.setInterval(() => {
+    try {
+      nav.geolocation.getCurrentPosition(success, error, options);
+    } catch {
+      /* ignore */
+    }
+  }, 5000);
 }
 
 function stopGeolocation() {
-  const nav = (globalThis as any).navigator;
-  if (geoWatchId != null && nav && nav.geolocation) {
+  if (geoTimerId != null) {
     try {
-      nav.geolocation.clearWatch(geoWatchId);
+      globalThis.clearInterval(geoTimerId);
     } catch {
       /* ignore */
     }
   }
-  geoWatchId = null;
+  geoTimerId = null;
+  try {
+    geoStatusDiv.innerText = "Geolocation: inactive";
+  } catch {
+    /* ignore */
+  }
 }
 
 // Page title
@@ -143,9 +181,12 @@ setInterval(() => {
 
 function parseStep(): number {
   const el = document.querySelector<HTMLInputElement>("#stepSize");
-  if (!el) return 0.001;
-  const v = parseFloat(el.value);
-  return Number.isFinite(v) ? v : 0.001;
+  if (!el) return 0.0001;
+  const intVal = parseInt(el.value, 10);
+  const clamped = Number.isFinite(intVal)
+    ? Math.max(1, Math.min(10, intVal))
+    : 1;
+  return clamped * 0.0001; // slider 1..10 maps to 0.0001..0.001
 }
 
 function movePlayerBy(dLat: number, dLon: number) {
@@ -191,10 +232,18 @@ document.addEventListener("click", (ev) => {
     }
     teleportTo(lat, lon);
   }
-  if (target.id === "clearPersisted") {
+  if (target.id === "resetGame") {
     localStorage.removeItem(STORAGE_KEY);
+    try {
+      localStorage.removeItem(POINTS_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    // reset in-memory points and cell store
+    playerPoints = 0;
+    updateStatus();
     alert(
-      "Cleared persisted cells. Visible cells will reseed on next pan/refresh.",
+      "Game Reset complete — persisted cells and points were cleared. Refresh the page to start anew.",
     );
     // Force a refresh: remove active overlays so updateVisibleCells will re-create them
     activeCells.forEach((rect) => {
@@ -217,6 +266,73 @@ const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
 
+// Place simulated movement controls under the map
+// Center the simulated controls under the map
+const simContainer = document.createElement("div");
+simContainer.style.cssText =
+  "display:flex;justify-content:center;margin-top:0.5rem;";
+simContainer.append(simControlsDiv);
+document.body.append(simContainer);
+
+// Insert hand tile and points into the movement controls container
+const leftHandDiv = document.createElement("div");
+leftHandDiv.className = "hand-left";
+leftHandDiv.innerHTML = `
+  <div class="hand-label">Hand</div>
+  <div class="hand-tile hand-empty" id="handTile">empty</div>
+`;
+
+const rightPointsDiv = document.createElement("div");
+rightPointsDiv.className = "hand-right";
+rightPointsDiv.innerHTML = `
+  <div class="points-label">Points</div>
+  <div class="points-value" id="points">0</div>
+`;
+
+const handRow = document.createElement("div");
+handRow.style.cssText =
+  "display:flex;justify-content:space-between;align-items:center;width:100%;gap:1rem;";
+handRow.append(leftHandDiv);
+handRow.append(rightPointsDiv);
+// Place the handRow at the top of #simControls so it is visually above the controls
+simControlsDiv.insertBefore(handRow, simControlsDiv.firstElementChild);
+
+// Wire the step slider to update the label (show 1..10)
+const stepSlider = document.querySelector<HTMLInputElement>("#stepSize");
+const stepLabel = document.querySelector<HTMLSpanElement>("#stepLabel");
+function updateStepLabel() {
+  if (!stepSlider || !stepLabel) return;
+  const v = parseInt(stepSlider.value, 10) || 1;
+  stepLabel.innerText = String(v);
+}
+updateStepLabel();
+if (stepSlider) stepSlider.addEventListener("input", updateStepLabel);
+
+// Insert geolocation toggle, status, and debug controls directly under the NSEW grid
+// (place them before the teleport row so they appear under the movement controls)
+const teleportRow = simControlsDiv.querySelector<HTMLInputElement>("#teleLat")
+  ?.parentElement;
+if (teleportRow && teleportRow.parentElement) {
+  teleportRow.parentElement.insertBefore(geoDiv, teleportRow);
+  teleportRow.parentElement.insertBefore(geoStatusDiv, teleportRow);
+  teleportRow.parentElement.insertBefore(debugControlsDiv, teleportRow);
+} else {
+  // Fallback: append to the centered container
+  simContainer.append(geoDiv);
+  simContainer.append(geoStatusDiv);
+  simContainer.append(debugControlsDiv);
+}
+
+// Now wire the geolocation checkbox (it exists after inserting into the DOM)
+const useGeoEl = document.querySelector<HTMLInputElement>("#useGeolocation");
+if (useGeoEl) {
+  useGeoEl.addEventListener("change", (ev) => {
+    const checked = (ev.target as HTMLInputElement).checked;
+    if (checked) startGeolocation();
+    else stopGeolocation();
+  });
+}
+
 const statusPanelDiv = document.createElement("div");
 statusPanelDiv.id = "statusPanel";
 document.body.append(statusPanelDiv);
@@ -236,7 +352,7 @@ handPanelDiv.innerHTML = `
     </div>
   </div>
 `;
-document.body.append(handPanelDiv);
+// We'll place hand UI alongside movement controls; do not append the full panel here.
 
 // Our classroom location
 const CLASSROOM_LATLNG = leaflet.latLng(
@@ -362,7 +478,35 @@ playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
 // Display the player's points
-const playerPoints = 0;
+// Points storage key
+const POINTS_STORAGE_KEY = "wob_points_v1";
+
+function loadPlayerPoints(): number {
+  try {
+    const raw = localStorage.getItem(POINTS_STORAGE_KEY);
+    if (!raw) return 0;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function persistPlayerPoints(points: number) {
+  try {
+    localStorage.setItem(POINTS_STORAGE_KEY, String(points));
+  } catch {
+    /* ignore */
+  }
+}
+
+function addPoints(n: number) {
+  playerPoints = (playerPoints || 0) + n;
+  persistPlayerPoints(playerPoints);
+  updateStatus();
+}
+
+let playerPoints = loadPlayerPoints();
 // Player hand: can hold at most one token (2048-style tile value)
 let playerHand: number | null = null;
 
@@ -583,8 +727,14 @@ function spawnCache(i: number, j: number) {
         // Update buttons
         if (pickupBtn) pickupBtn.disabled = false;
         if (placeBtn) placeBtn.disabled = true;
+        // Award points equal to the merged tile value (like 2048)
+        try {
+          addPoints(cellState!.tokenValue ?? 0);
+        } catch {
+          /* ignore */
+        }
         updateStatus();
-        alert(`Merged to ${cellState!.tokenValue}!`);
+        //alert(`Merged to ${cellState!.tokenValue}!`);
         return;
       }
 
@@ -682,3 +832,13 @@ function updateVisibleCells() {
 // Initial spawn and on map move
 updateVisibleCells();
 map.on("moveend", () => updateVisibleCells());
+
+// Auto-start geolocation after map and player marker exist if checkbox is checked
+try {
+  const useGeo = document.querySelector<HTMLInputElement>("#useGeolocation");
+  if (useGeo && useGeo.checked) {
+    startGeolocation();
+  }
+} catch {
+  /* ignore */
+}
