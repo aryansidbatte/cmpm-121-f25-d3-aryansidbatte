@@ -20,7 +20,7 @@ World of Bits is a location-based crafting game combining ideas from 2048 and Po
 Key technical challenge: assemble a Leaflet-based map UI.
 Key gameplay challenge: allow collecting and crafting tokens from nearby map cells.
 
-### Steps
+### Steps a
 
 - [x] copy `main.ts` to `reference.ts` for future reference
 - [x] delete everything in `main.ts`
@@ -39,12 +39,12 @@ Key gameplay challenge: allow collecting and crafting tokens from nearby map cel
 
 Key technical challenge: support seamless gameplay anywhere on Earth.
 
-### Steps
+### Steps b
 
-- [ ] design cell coordinate scheme (lat/lon grid) and rendering bounds
-- [ ] implement cell seeding rules that work across the globe
-- [ ] optimize rendering for many cells (tile the grid lazily)
-- [ ] playtest moving to different locations to gather resources
+- [x] design cell coordinate scheme (lat/lon grid) and rendering bounds
+- [x] implement cell seeding rules that work across the globe
+- [x] optimize rendering for many cells (tile the grid lazily)
+- [x] playtest moving to different locations to gather resources
 
 ### D3.b Design Notes (Cell coordinate scheme & rendering bounds)
 
@@ -77,7 +77,7 @@ Acceptance criteria
 
 Key technical challenge: remember cell state when off-screen and when users pan/zoom the map.
 
-### Steps
+### Steps c
 
 - [ ] create an in-memory store for cell states (memento/flyweight ideas)
 - [ ] persist cell state to local cache when unloaded from view
@@ -88,7 +88,7 @@ Key technical challenge: remember cell state when off-screen and when users pan/
 
 Key technical challenge: remember game state across browser sessions; use device geolocation for player movement.
 
-### Steps
+### Steps d
 
 - [ ] serialize and save player and cell state to `localStorage` or IndexedDB
 - [ ] restore state on load and reconnect map overlays to stored cells

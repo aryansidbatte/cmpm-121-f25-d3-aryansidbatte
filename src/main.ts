@@ -17,6 +17,79 @@ const controlPanelDiv = document.createElement("div");
 controlPanelDiv.id = "controlPanel";
 document.body.append(controlPanelDiv);
 
+// --- Simulated movement controls (playtesting) ---
+const simControlsDiv = document.createElement("div");
+simControlsDiv.id = "simControls";
+simControlsDiv.innerHTML = `
+  <div style="display:flex;gap:0.5rem;align-items:center;">
+    <label for="stepSize">Step (deg):</label>
+    <input id="stepSize" type="number" value="0.001" step="0.0001" style="width:90px;" />
+    <button id="moveN">N</button>
+    <button id="moveS">S</button>
+    <button id="moveE">E</button>
+    <button id="moveW">W</button>
+    <label style="margin-left:0.5rem"><input type="checkbox" id="centerOnPlayer" checked /> center map</label>
+  </div>
+  <div style="margin-top:0.4rem;display:flex;gap:0.5rem;align-items:center;">
+    <input id="teleLat" placeholder="lat" style="width:120px;" />
+    <input id="teleLon" placeholder="lon" style="width:120px;" />
+    <button id="teleportBtn">Teleport</button>
+  </div>
+`;
+controlPanelDiv.append(simControlsDiv);
+
+function parseStep(): number {
+  const el = document.querySelector<HTMLInputElement>("#stepSize");
+  if (!el) return 0.001;
+  const v = parseFloat(el.value);
+  return Number.isFinite(v) ? v : 0.001;
+}
+
+function movePlayerBy(dLat: number, dLon: number) {
+  const cur = playerMarker.getLatLng();
+  const next = leaflet.latLng(cur.lat + dLat, cur.lng + dLon);
+  playerMarker.setLatLng(next);
+  const center = document.querySelector<HTMLInputElement>("#centerOnPlayer")!
+    .checked;
+  if (center) map.panTo(next);
+  // Ensure visible cells are updated when player changes location
+  updateVisibleCells();
+}
+
+function teleportTo(lat: number, lon: number) {
+  const next = leaflet.latLng(lat, lon);
+  playerMarker.setLatLng(next);
+  const center = document.querySelector<HTMLInputElement>("#centerOnPlayer")!
+    .checked;
+  if (center) map.panTo(next);
+  updateVisibleCells();
+}
+
+// Wire control buttons
+document.addEventListener("click", (ev) => {
+  const target = ev.target as HTMLElement | null;
+  if (!target) return;
+  if (target.id === "moveN") movePlayerBy(parseStep(), 0);
+  if (target.id === "moveS") movePlayerBy(-parseStep(), 0);
+  if (target.id === "moveE") movePlayerBy(0, parseStep());
+  if (target.id === "moveW") movePlayerBy(0, -parseStep());
+  if (target.id === "teleportBtn") {
+    const latStr =
+      (document.querySelector<HTMLInputElement>("#teleLat")!.value || "")
+        .trim();
+    const lonStr =
+      (document.querySelector<HTMLInputElement>("#teleLon")!.value || "")
+        .trim();
+    const lat = parseFloat(latStr);
+    const lon = parseFloat(lonStr);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      alert("Enter valid numeric lat and lon to teleport");
+      return;
+    }
+    teleportTo(lat, lon);
+  }
+});
+
 const mapDiv = document.createElement("div");
 mapDiv.id = "map";
 document.body.append(mapDiv);
