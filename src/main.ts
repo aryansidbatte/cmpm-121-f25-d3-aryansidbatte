@@ -606,7 +606,7 @@ function updateVisibleCells() {
     }
     activeCells.delete(key);
     spawnedCells.delete(key);
-    cellStore.delete(key);
+    // Keep cellStore entry in memory for the session (don't delete)
   });
 }
 
