@@ -92,7 +92,7 @@ function spawnCache(i: number, j: number) {
 
   // Each cache may contain a token (power-of-two) that the player can pick up
   let tokenPresent = true;
-  const tokenValue = Math.pow(
+  let tokenValue = Math.pow(
     2,
     Math.floor(luck([i, j, "initialValue"].toString()) * 4) + 1,
   );
@@ -105,7 +105,8 @@ function spawnCache(i: number, j: number) {
                 <div>There is a cache here at "${i},${j}". Token: <span id="token">${
       tokenPresent ? tokenValue : "none"
     }</span>.</div>
-                <button id="pickup">Pick up</button>`;
+                <button id="pickup">Pick up</button>
+                <button id="place">Place</button>`;
 
     // Clicking pickup attempts to put the token into the player's hand
     popupDiv
@@ -135,6 +136,50 @@ function spawnCache(i: number, j: number) {
         const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
         if (tokenSpan) tokenSpan.innerText = "none";
         updateStatus();
+      });
+
+    // Place button: put the token in hand into this cell (or merge if identical)
+    popupDiv
+      .querySelector<HTMLButtonElement>("#place")!
+      .addEventListener("click", () => {
+        if (playerHand === null) {
+          alert("You have no token in hand to place.");
+          return;
+        }
+
+        // Check distance between player and cache center
+        const playerLatLng = playerMarker.getLatLng();
+        const cellCenter = bounds.getCenter();
+        const distance = playerLatLng.distanceTo(cellCenter);
+        if (distance > PICKUP_RADIUS_METERS) {
+          alert("Too far away to place the token. Move closer.");
+          return;
+        }
+
+        // If no token present, place directly
+        if (!tokenPresent) {
+          tokenValue = playerHand as number;
+          tokenPresent = true;
+          playerHand = null;
+          const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
+          if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+          updateStatus();
+          return;
+        }
+
+        // If token present and same value, merge (single-merge-per-action)
+        if (tokenPresent && tokenValue === playerHand) {
+          tokenValue = tokenValue * 2;
+          playerHand = null;
+          const tokenSpan = popupDiv.querySelector<HTMLSpanElement>("#token");
+          if (tokenSpan) tokenSpan.innerText = tokenValue.toString();
+          updateStatus();
+          alert(`Merged to ${tokenValue}!`);
+          return;
+        }
+
+        // Otherwise, cannot place onto a different token
+        alert("Cell already has a different token. You can't place here.");
       });
 
     return popupDiv;
