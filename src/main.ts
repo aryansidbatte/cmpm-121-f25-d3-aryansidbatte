@@ -236,11 +236,45 @@ function spawnCache(i: number, j: number) {
 }
 
 // Look around the player's neighborhood for caches to spawn
-for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-  for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-    // If location i,j is lucky enough, spawn a cache!
-    if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
-      spawnCache(i, j);
+// Viewport-driven spawning (D3.b)
+const spawnedCells = new Set<string>();
+const ORIGIN_LAT = CLASSROOM_LATLNG.lat;
+const ORIGIN_LON = CLASSROOM_LATLNG.lng;
+const VIEW_PADDING_TILES = 2;
+
+function latToI(lat: number) {
+  return Math.floor((lat - ORIGIN_LAT) / TILE_DEGREES);
+}
+
+function lonToJ(lon: number) {
+  return Math.floor((lon - ORIGIN_LON) / TILE_DEGREES);
+}
+
+function updateVisibleCells() {
+  const bounds = map.getBounds();
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+  const west = bounds.getWest();
+  const east = bounds.getEast();
+
+  const iMin = latToI(south) - VIEW_PADDING_TILES;
+  const iMax = latToI(north) + VIEW_PADDING_TILES;
+  const jMin = lonToJ(west) - VIEW_PADDING_TILES;
+  const jMax = lonToJ(east) + VIEW_PADDING_TILES;
+
+  for (let i = iMin; i <= iMax; i++) {
+    for (let j = jMin; j <= jMax; j++) {
+      const key = `${i},${j}`;
+      if (spawnedCells.has(key)) continue;
+      // Deterministic seeding per cell
+      if (luck([i, j].toString()) < CACHE_SPAWN_PROBABILITY) {
+        spawnCache(i, j);
+      }
+      spawnedCells.add(key);
     }
   }
 }
+
+// Initial spawn and on map move
+updateVisibleCells();
+map.on("moveend", () => updateVisibleCells());

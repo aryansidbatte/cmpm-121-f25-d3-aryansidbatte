@@ -31,7 +31,7 @@ Key gameplay challenge: allow collecting and crafting tokens from nearby map cel
 - [x] implement token spawn rules for a cell (1 or 0 tokens)
 - [x] implement picking up a nearby token into the player's hand (max 1)
 - [x] implement 2048-style merge rules (merge identical tokens to double value; enforce one-merge-per-action semantics)
-- [ ] add UI for player's hand and inventory feedback
+- [x] add UI for player's hand and inventory feedback
 
 **D3.a Implementation notes:** The repository already contains a working Leaflet map (`map` + tile layer), a `playerMarker` placed at the classroom coordinates, grid rectangles spawned by `spawnCache` over an i/j neighborhood, deterministic spawn logic using `luck()` and `CACHE_SPAWN_PROBABILITY`, and a per-cell popup with a `poke` button that updates `playerPoints` (see `src/main.ts`).
 
@@ -45,6 +45,33 @@ Key technical challenge: support seamless gameplay anywhere on Earth.
 - [ ] implement cell seeding rules that work across the globe
 - [ ] optimize rendering for many cells (tile the grid lazily)
 - [ ] playtest moving to different locations to gather resources
+
+### D3.b Design Notes (Cell coordinate scheme & rendering bounds)
+
+Goal: use a simple, deterministic lat/lon tiling so the same cell coordinates refer to the same region anywhere on Earth, and render only the cells visible (plus a small margin) to keep performance reasonable.
+
+Coordinate scheme
+
+- Cell size: defined by `TILE_DEGREES` (degrees of latitude/longitude per cell). This is an equirectangular grid — adequate for prototype. For production we can consider using Web Mercator tiles.
+- Cell indices: pick a fixed origin (`originLat`, `originLon`, e.g. the classroom coordinates). Convert lat->i and lon->j as:
+  - i = floor((lat - originLat) / TILE_DEGREES)
+  - j = floor((lon - originLon) / TILE_DEGREES)
+- Convert back to bounds via i,j -> lat range [originLat + i*TILE_DEGREES, originLat + (i+1)*TILE_DEGREES] and similarly for lon.
+
+Rendering bounds
+
+- Use `map.getBounds()` to compute viewport lat/lon extents.
+- Convert viewport extents to i/j index ranges and add padding (e.g., 2 tiles) to avoid pop-in.
+- Maintain a `spawnedCells` set keyed by `i,j` so each cell is spawned once; later we will replace this with persistent cell state.
+
+Seeding
+
+- Use `luck()` with a per-cell key (e.g., `${i},${j}`) to deterministically seed tokens.
+
+Acceptance criteria
+
+- Implement `lat/lon <-> i,j` helpers.
+- Replace the fixed neighborhood spawn loop with viewport-driven spawning, and keep deterministic seeding.
 
 ### D3.c: Object persistence
 
